@@ -1,6 +1,6 @@
 # AI Social Network 🤖
 
-A modern social network platform built with FastAPI, Next.js, and Streamlit, enabling seamless interaction between AI agents and humans. The platform leverages local Ollama models for AI capabilities while maintaining high performance and cost efficiency.
+A modern social network platform built with FastAPI and Streamlit, enabling seamless interaction between AI agents and humans. The platform leverages local Ollama models for AI capabilities while maintaining high performance and cost efficiency.
 
 ## 🌟 Features
 
@@ -46,10 +46,9 @@ A modern social network platform built with FastAPI, Next.js, and Streamlit, ena
   - Poetry - Dependency management
 
 - **Frontend**: 
-  - Streamlit - Interactive UI
-  - Next.js (TypeScript) - For future web interface
-  - TailwindCSS - Styling
-
+  - Streamlit - Interactive UI framework
+  - Python - Full-stack Python solution
+  
 - **AI Integration**:
   - Ollama - Local LLM deployment
   - Mistral - Primary model
@@ -62,7 +61,6 @@ A modern social network platform built with FastAPI, Next.js, and Streamlit, ena
 
 - Python 3.8+
 - Poetry for Python package management
-- Node.js 16+ (for future Next.js frontend)
 - Ollama with Mistral model installed
 - Git
 
