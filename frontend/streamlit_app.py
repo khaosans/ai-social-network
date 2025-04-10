@@ -121,6 +121,30 @@ st.markdown("""
     .status-offline {
         background-color: #dc3545;
     }
+    .reply-container {
+        margin-left: 2rem;
+        padding: 1rem;
+        background-color: #f8f9fa;
+        border-radius: 0.5rem;
+        margin-top: 0.5rem;
+    }
+    .reply-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.5rem;
+    }
+    .reply-content {
+        padding: 0.5rem;
+        background-color: #ffffff;
+        border-radius: 0.5rem;
+    }
+    .reply-form {
+        margin-top: 1rem;
+        padding: 1rem;
+        background-color: #f8f9fa;
+        border-radius: 0.5rem;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -136,6 +160,8 @@ if 'services_status' not in st.session_state:
         'backend': False,
         'agent': False
     }
+if 'replying_to' not in st.session_state:
+    st.session_state.replying_to = None
 
 def check_service_status():
     try:
@@ -243,56 +269,84 @@ def like_post(post_id: str) -> bool:
         logger.error(f"Error liking post: {str(e)}")
         return False
 
-def display_post(post: Dict):
-    """Display a single post with enhanced formatting"""
-    with st.container():
-        # Post header with poster info
-        col1, col2 = st.columns([4, 1])
-        with col1:
-            # Get poster info with defaults
-            poster_name = post.get('agent', 'Unknown')
-            poster_role = post.get('role', 'User')
-            poster_avatar = post.get('avatar', '👤')
-            
-            # Add special styling for the current user's posts
-            is_current_user = poster_name == "You"
-            name_style = "color: #1e88e5; font-weight: bold;" if is_current_user else "font-weight: bold;"
-            
-            st.markdown(f"""
+def create_reply(post_id: str, content: str, author: Optional[str] = None, author_avatar: Optional[str] = None) -> bool:
+    """Create a reply to a post"""
+    try:
+        data = {
+            "content": content,
+            "author": author,
+            "author_avatar": author_avatar
+        }
+        response = requests.post(
+            f"{API_URL}/posts/{post_id}/replies",
+            data=data
+        )
+        response.raise_for_status()
+        return True
+    except Exception as e:
+        logger.error(f"Error creating reply: {str(e)}")
+        return False
+
+def display_reply(reply: Dict):
+    """Display a single reply"""
+    st.markdown(f"""
+        <div class="reply-container">
+            <div class="reply-header">
                 <div class="poster-info">
-                    <span class="poster-avatar">{poster_avatar}</span>
-                    <div>
-                        <div class="poster-name" style="{name_style}">{poster_name}</div>
-                        <div class="poster-role">{poster_role}</div>
-                    </div>
+                    <span class="poster-avatar">{reply.get('author_avatar', '👤')}</span>
+                    <span class="poster-name">{reply.get('author', 'Anonymous')}</span>
+                    {f'<span class="poster-role">{reply.get("role", "")}</span>' if reply.get('role') else ''}
                 </div>
-            """, unsafe_allow_html=True)
-        
-        with col2:
-            st.caption(f"Posted on {datetime.fromisoformat(post['created_at']).strftime('%Y-%m-%d %H:%M:%S')}")
-        
-        # Post content
-        st.markdown(f"""
+                <span class="post-time">{datetime.fromisoformat(reply['created_at']).strftime('%Y-%m-%d %H:%M')}</span>
+            </div>
+            <div class="reply-content">
+                {reply['content']}
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
+
+def display_post(post: Dict):
+    """Display a single post with replies"""
+    st.markdown(f"""
+        <div class="post-container">
+            <div class="post-header">
+                <div class="poster-info">
+                    <span class="poster-avatar">{post.get('avatar', '👤')}</span>
+                    <span class="poster-name">{post.get('agent', 'Anonymous')}</span>
+                    {f'<span class="poster-role">{post.get("role", "")}</span>' if post.get('role') else ''}
+                </div>
+                <span class="post-time">{datetime.fromisoformat(post['created_at']).strftime('%Y-%m-%d %H:%M')}</span>
+            </div>
             <div class="post-content">
                 {post['content']}
             </div>
-        """, unsafe_allow_html=True)
-        
-        # Post image if available
-        if post.get('image_path'):
-            st.image(f"{API_URL}/uploads/{post['image_path']}", use_column_width=True)
-        
-        # Post footer with likes
-        col1, col2 = st.columns([1, 4])
-        with col1:
-            if st.button(f"❤️ {post['likes']}", key=f"like_{post['id']}"):
-                if like_post(post['id']):
-                    st.session_state.posts = fetch_posts()
-                    st.rerun()
-        with col2:
-            st.caption(f"Post ID: {post['id']}")
-        
-        st.divider()
+            {f'<img src="{post["image"]}" class="post-image" />' if post.get('image') else ''}
+            <div class="post-footer">
+                <button class="like-button" onclick="likePost('{post['id']}')">❤️ {post['likes']}</button>
+                <button class="reply-button" onclick="replyToPost('{post['id']}')">💬 Reply</button>
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
+    
+    # Display replies
+    if post.get('replies'):
+        for reply in post['replies']:
+            display_reply(reply)
+    
+    # Reply form
+    if st.session_state.replying_to == post['id']:
+        with st.form(key=f"reply_form_{post['id']}"):
+            reply_content = st.text_area("Your reply", key=f"reply_content_{post['id']}")
+            author = st.text_input("Your name (optional)", key=f"reply_author_{post['id']}")
+            submit_reply = st.form_submit_button("Post Reply")
+            
+            if submit_reply and reply_content:
+                if create_reply(post['id'], reply_content, author):
+                    st.success("Reply posted successfully!")
+                    st.session_state.replying_to = None
+                    st.experimental_rerun()
+                else:
+                    st.error("Failed to post reply")
 
 # Main UI
 st.title("🌐 Social Network")
@@ -397,4 +451,13 @@ if st.sidebar.button("Check API Health"):
         st.success("API is healthy! ✅")
         st.json(health)
     except Exception as e:
-        st.error(f"API health check failed: {str(e)}") 
+        st.error(f"API health check failed: {str(e)}")
+
+# Add JavaScript for reply functionality
+st.markdown("""
+    <script>
+    function replyToPost(postId) {
+        Streamlit.setComponentValue('replying_to', postId);
+    }
+    </script>
+""", unsafe_allow_html=True) 

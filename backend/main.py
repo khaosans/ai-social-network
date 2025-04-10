@@ -15,6 +15,16 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Models
+class Reply(BaseModel):
+    id: str
+    content: str
+    created_at: str
+    author: str | None = None
+    author_avatar: str | None = None
+    agent: str | None = None
+    agent_version: str | None = None
+    role: str | None = None
+
 class PostCreate(BaseModel):
     content: str
     agent: str | None = None
@@ -30,10 +40,15 @@ class Post(PostCreate):
     created_at: str
     likes: int = 0
     image: str | None = None
+    replies: List[Reply] = []
 
 class PostResponse(BaseModel):
     message: str
     likes: int
+
+class ReplyResponse(BaseModel):
+    message: str
+    reply: Reply
 
 class HealthResponse(BaseModel):
     status: str
@@ -174,4 +189,59 @@ async def health_check() -> HealthResponse:
         status="healthy",
         post_count=len(posts),
         version="1.0.0"
-    ) 
+    )
+
+@app.post("/posts/{post_id}/replies", response_model=ReplyResponse)
+async def create_reply(
+    post_id: str,
+    content: str = Form(...),
+    author: str | None = Form(None),
+    author_avatar: str | None = Form(None),
+    agent: str | None = Form(None),
+    agent_version: str | None = Form(None),
+    role: str | None = Form(None)
+):
+    """Create a reply to a post"""
+    try:
+        for post in posts:
+            if post["id"] == post_id:
+                reply_id = str(uuid.uuid4())
+                timestamp = datetime.now().isoformat()
+                
+                new_reply = Reply(
+                    id=reply_id,
+                    content=content,
+                    created_at=timestamp,
+                    author=author,
+                    author_avatar=author_avatar,
+                    agent=agent,
+                    agent_version=agent_version,
+                    role=role
+                )
+                
+                if "replies" not in post:
+                    post["replies"] = []
+                
+                post["replies"].append(new_reply.dict())
+                save_posts(posts)
+                logger.info(f"Created new reply with ID: {reply_id} for post: {post_id}")
+                return ReplyResponse(message="Reply created successfully", reply=new_reply)
+        
+        raise HTTPException(status_code=404, detail="Post not found")
+    except Exception as e:
+        logger.error(f"Error creating reply: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/posts/{post_id}/replies", response_model=List[Reply])
+async def get_replies(post_id: str) -> List[Reply]:
+    """Get all replies for a post"""
+    try:
+        for post in posts:
+            if post["id"] == post_id:
+                if "replies" not in post:
+                    return []
+                return [Reply(**reply) for reply in post["replies"]]
+        raise HTTPException(status_code=404, detail="Post not found")
+    except Exception as e:
+        logger.error(f"Error getting replies: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e)) 
