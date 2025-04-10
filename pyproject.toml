@@ -1,0 +1,24 @@
+[tool.poetry]
+name = "ai-network"
+version = "0.1.0"
+description = "AI Social Network with FastAPI, LangChain, and Streamlit"
+authors = ["Your Name <your.email@example.com>"]
+readme = "README.md"
+package-mode = false
+
+[tool.poetry.dependencies]
+python = ">=3.9,<3.9.7 || >3.9.7,<4.0"
+fastapi = "^0.109.2"
+uvicorn = "^0.27.1"
+python-multipart = "^0.0.9"
+python-dotenv = "^1.0.1"
+requests = "^2.31.0"
+streamlit = "^1.31.1"
+langchain = "^0.1.9"
+openai = "^1.12.0"
+pydantic = "^2.6.1"
+slowapi = "^0.1.8"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
