@@ -289,64 +289,83 @@ def create_reply(post_id: str, content: str, author: Optional[str] = None, autho
 
 def display_reply(reply: Dict):
     """Display a single reply"""
-    st.markdown(f"""
-        <div class="reply-container">
-            <div class="reply-header">
+    with st.container():
+        # Reply header
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            st.markdown(f"""
                 <div class="poster-info">
                     <span class="poster-avatar">{reply.get('author_avatar', '👤')}</span>
                     <span class="poster-name">{reply.get('author', 'Anonymous')}</span>
                     {f'<span class="poster-role">{reply.get("role", "")}</span>' if reply.get('role') else ''}
                 </div>
-                <span class="post-time">{datetime.fromisoformat(reply['created_at']).strftime('%Y-%m-%d %H:%M')}</span>
-            </div>
+            """, unsafe_allow_html=True)
+        with col2:
+            st.markdown(f"<span class='post-time'>{datetime.fromisoformat(reply['created_at']).strftime('%Y-%m-%d %H:%M')}</span>", unsafe_allow_html=True)
+        
+        # Reply content
+        st.markdown(f"""
             <div class="reply-content">
                 {reply['content']}
             </div>
-        </div>
-    """, unsafe_allow_html=True)
+        """, unsafe_allow_html=True)
 
 def display_post(post: Dict):
     """Display a single post with replies"""
-    st.markdown(f"""
-        <div class="post-container">
-            <div class="post-header">
+    with st.container():
+        # Post header
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            st.markdown(f"""
                 <div class="poster-info">
                     <span class="poster-avatar">{post.get('avatar', '👤')}</span>
                     <span class="poster-name">{post.get('agent', 'Anonymous')}</span>
                     {f'<span class="poster-role">{post.get("role", "")}</span>' if post.get('role') else ''}
                 </div>
-                <span class="post-time">{datetime.fromisoformat(post['created_at']).strftime('%Y-%m-%d %H:%M')}</span>
-            </div>
-            <div class="post-content">
-                {post['content']}
-            </div>
-            {f'<img src="{post["image"]}" class="post-image" />' if post.get('image') else ''}
-            <div class="post-footer">
-                <button class="like-button" onclick="likePost('{post['id']}')">❤️ {post['likes']}</button>
-                <button class="reply-button" onclick="replyToPost('{post['id']}')">💬 Reply</button>
-            </div>
-        </div>
-    """, unsafe_allow_html=True)
-    
-    # Display replies
-    if post.get('replies'):
-        for reply in post['replies']:
-            display_reply(reply)
-    
-    # Reply form
-    if st.session_state.replying_to == post['id']:
-        with st.form(key=f"reply_form_{post['id']}"):
-            reply_content = st.text_area("Your reply", key=f"reply_content_{post['id']}")
-            author = st.text_input("Your name (optional)", key=f"reply_author_{post['id']}")
-            submit_reply = st.form_submit_button("Post Reply")
-            
-            if submit_reply and reply_content:
-                if create_reply(post['id'], reply_content, author):
-                    st.success("Reply posted successfully!")
-                    st.session_state.replying_to = None
-                    st.experimental_rerun()
-                else:
-                    st.error("Failed to post reply")
+            """, unsafe_allow_html=True)
+        with col2:
+            st.markdown(f"<span class='post-time'>{datetime.fromisoformat(post['created_at']).strftime('%Y-%m-%d %H:%M')}</span>", unsafe_allow_html=True)
+        
+        # Post content
+        st.markdown(f"<div class='post-content'>{post['content']}</div>", unsafe_allow_html=True)
+        
+        # Image if present
+        if post.get('image'):
+            st.image(post['image'])
+        
+        # Interactive buttons using Streamlit components
+        col1, col2, col3 = st.columns([1, 1, 2])
+        with col1:
+            if st.button(f"❤️ {post['likes']}", key=f"like_{post['id']}"):
+                if like_post(post['id']):
+                    st.rerun()
+        with col2:
+            if st.button(f"💬 Reply", key=f"reply_{post['id']}"):
+                st.session_state.replying_to = post['id']
+                st.rerun()
+        
+        # Display replies
+        if post.get('replies'):
+            with st.container():
+                for reply in post['replies']:
+                    display_reply(reply)
+        
+        # Reply form
+        if st.session_state.replying_to == post['id']:
+            with st.form(key=f"reply_form_{post['id']}"):
+                reply_content = st.text_area("Your reply", key=f"reply_content_{post['id']}")
+                author = st.text_input("Your name (optional)", key=f"reply_author_{post['id']}")
+                submit_reply = st.form_submit_button("Post Reply")
+                
+                if submit_reply and reply_content:
+                    if create_reply(post['id'], reply_content, author):
+                        st.success("Reply posted successfully!")
+                        st.session_state.replying_to = None
+                        st.experimental_rerun()
+                    else:
+                        st.error("Failed to post reply")
+        
+        st.markdown("---")  # Separator between posts
 
 # Main UI
 st.title("🌐 Social Network")
@@ -440,10 +459,6 @@ else:
     for post in posts:
         display_post(post)
 
-# Footer
-st.markdown("---")
-st.caption(f"Last refreshed: {st.session_state.last_refresh.strftime('%Y-%m-%d %H:%M:%S')}")
-
 # Health check
 if st.sidebar.button("Check API Health"):
     try:
@@ -453,11 +468,6 @@ if st.sidebar.button("Check API Health"):
     except Exception as e:
         st.error(f"API health check failed: {str(e)}")
 
-# Add JavaScript for reply functionality
-st.markdown("""
-    <script>
-    function replyToPost(postId) {
-        Streamlit.setComponentValue('replying_to', postId);
-    }
-    </script>
-""", unsafe_allow_html=True) 
+# Footer
+st.markdown("---")
+st.caption(f"Last refreshed: {st.session_state.last_refresh.strftime('%Y-%m-%d %H:%M:%S')}") 
